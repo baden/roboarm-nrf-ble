@@ -10,21 +10,35 @@
 // #include <bluemicro_hid.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+// #include <Adafruit_SSD1306.h>
+// #include <Adafruit_SH1106.h>
+#include <Adafruit_SH110X.h>
+
+// #include <U8g2lib.h>
 
 #include <AccelStepper.h>
 
 #define LED PIN_015 //Set a definiton on pin P0.15 called "LED".
 
-#define STEPPER_DIR_PIN PIN_111 //Set a definiton on pin P0.09 called "STEPPER_DIR_PIN".
-#define STEPPER_STEP_PIN PIN_113 //Set a definiton on pin P0.10 called "STEPPER_STEP_PIN".
+#define USE_BREAK
+
+#define AXIS_2_FORWARD_PIN PIN_017
+#define AXIS_2_BACKWARD_PIN PIN_020
+
+#define STEPPER_DIR_PIN PIN_100 //Set a definiton on pin P0.09 called "STEPPER_DIR_PIN".
+#define STEPPER_STEP_PIN PIN_024 //Set a definiton on pin P0.10 called "STEPPER_STEP_PIN".
+#define STEPPER_ENABLE_PIN PIN_022 //Set a definiton on pin P0.11 called "STEPPER_ENABLE_PIN".
+// #define STEPPER_RST_PIN PIN_113 //Set a definiton on pin P0.13 called "STEPPER_RESET_PIN".
 
 #define STEPS 200
 AccelStepper stepper(AccelStepper::DRIVER, STEPPER_STEP_PIN, STEPPER_DIR_PIN);
 // Stepper stepper(STEPS, STEPPER_DIR_PIN, STEPPER_STEP_PIN);
 // #define motorInterfaceType 1
 
-Adafruit_SSD1306 display(128, 32, &Wire, -1);
+// Adafruit_SSD1306 display(128, 64, &Wire, -1);
+#define OLED_RESET -1
+// Adafruit_SH1106 display(OLED_RESET);
+Adafruit_SH1106G display = Adafruit_SH1106G(128, 64, &Wire, OLED_RESET);
 // BLEUart bleuart;  // BLE UART сервіс
 
 const uint8_t LED_SERVICE_UUID[] =
@@ -41,6 +55,14 @@ const uint8_t LED_CHR_UUID[] =
 BLEService        lbs(LED_SERVICE_UUID);
 BLECharacteristic lsbLED(LED_CHR_UUID);
 BLEConnection* connection;
+
+
+bool isRunning = false;
+// float motorSpeed = 1000.0; // кроків/сек
+bool dir = true;
+float targetSpeed = 1000.0; // кроків/сек
+float acceleration = 1000.0; // кроків/сек^2
+
 
 // callback invoked when central connects
 void connect_callback(uint16_t conn_handle)
@@ -84,8 +106,6 @@ void setupAdv(void)
   Bluefruit.Advertising.restartOnDisconnect(true);
 }
 
-bool isRunning = false;
-float motorSpeed = 1000.0; // кроків/сек
 
 void led_write_callback(uint16_t conn_hdl, BLECharacteristic* chr, uint8_t* data, uint16_t len)
 {
@@ -114,21 +134,31 @@ void led_write_callback(uint16_t conn_hdl, BLECharacteristic* chr, uint8_t* data
     case 30:
         // Start move stepper motor forward
         isRunning = true;
-        motorSpeed = 1000.0; // кроків/сек
+        digitalWrite(STEPPER_ENABLE_PIN, LOW); // Enable the stepper driver
+        // motorSpeed = 1000.0; // кроків/сек
+        stepper.setAcceleration(acceleration); // плавний розгін
+        stepper.moveTo(1L << 30);  // дуже велике число (для CW)
         break;
     case 31:
         // Stop move stepper motor forward
         isRunning = false;
+        stepper.setAcceleration(acceleration*5); // плавний розгін
+        stepper.stop(); // миттєве гальмування
         break;
 
     case 40:
         // Start move stepper motor backward
         isRunning = true;
-        motorSpeed = -1000.0; // кроків/сек
+        digitalWrite(STEPPER_ENABLE_PIN, LOW); // Enable the stepper driver
+        // motorSpeed = -1000.0; // кроків/сек
+        stepper.setAcceleration(acceleration); // плавний розгін
+        stepper.moveTo(-(1L << 30)); // для CCW
         break;
     case 41:
         // Stop move stepper motor backward
         isRunning = false;
+        stepper.setAcceleration(acceleration*5); // плавний розгін
+        stepper.stop(); // миттєве гальмування
         break;
 
     default:
@@ -150,10 +180,17 @@ void setup() {
     TinyUSBDevice.setProductDescriptor("robo_arm");
     Serial.begin(115200);
 
+    pinMode(STEPPER_ENABLE_PIN, OUTPUT);
+    digitalWrite(STEPPER_ENABLE_PIN, HIGH); // Disable the stepper driver initially
+    // pinMode(STEPPER_RST_PIN, OUTPUT);
+    // digitalWrite(STEPPER_RST_PIN, LOW); // Reset the stepper driver
+    // delay(100); // wait for reset to complete
+    // digitalWrite(STEPPER_RST_PIN, HIGH); // Release the reset
     // bluemicro_hid.begin();
     // stepper.setSpeed(1000);
-    stepper.setMaxSpeed(1000); // максимум, який ви дозволяєте
-    stepper.setSpeed(100); // за замовчуванням
+    stepper.setMaxSpeed(targetSpeed); // максимум, який ви дозволяєте
+    stepper.setAcceleration(acceleration); // плавний розгін
+    // stepper.setSpeed(100); // за замовчуванням
 
     Bluefruit.begin();
     Bluefruit.setName("DROPLA-ROBO-ARM");
@@ -183,15 +220,17 @@ void setup() {
     Bluefruit.Advertising.start();
     #endif
 
-    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { //if error then builtin led light up
-        digitalWrite(LED, HIGH); //Set the LED to high
-        delay(10000);
-        Serial.println("Error initializing display");
-        while (true);
-    }
+    // if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { //if error then builtin led light up
+    //     digitalWrite(LED, HIGH); //Set the LED to high
+    //     delay(10000);
+    //     Serial.println("Error initializing display");
+    //     while (true);
+    // }
+    // display.begin(SH1106_SWITCHCAPVCC, 0x3C);
+    display.begin(0x3C, true); // Address 0x3C default
     display.clearDisplay();
     display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
+    display.setTextColor(SH110X_WHITE /*SSD1306_WHITE*/);
     display.setCursor(0, 0); //place where the text will be drawn
     display.println("By DROPLA");
     display.setCursor(0, 16);
@@ -255,7 +294,7 @@ void loop() {
 
     display.clearDisplay();
     display.setTextSize(2);
-    display.setTextColor(SSD1306_WHITE);
+    display.setTextColor(/*SSD1306_WHITE*/SH110X_WHITE);
     display.setCursor(0, 0); //place where the text will be drawn
     // Display the count value
     display.print("Count: ");
@@ -285,10 +324,19 @@ void loop() {
 //     display.print(count);
 //     display.display();
 
-    if(isRunning) {
-        // If the stepper is running, set the speed and run it
-        stepper.setSpeed(motorSpeed);
-        stepper.runSpeed();
+    // if(isRunning) {
+    //     // If the stepper is running, set the speed and run it
+    //     stepper.setSpeed(motorSpeed);
+    //     stepper.runSpeed();
+    // }
+
+    if (isRunning || stepper.distanceToGo() != 0) {
+        stepper.run(); // керує розгоном / гальмуванням
+    } else {
+        // Якщо кроковий двигун не рухається, вимикаємо драйвер
+        #if !defined(USE_BREAK)
+        digitalWrite(STEPPER_ENABLE_PIN, HIGH); // Disable the stepper driver
+        #endif
     }
 
 
