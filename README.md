@@ -14,6 +14,17 @@ https://github.com/ICantMakeThings/Nicenano-NRF52-Supermini-PlatformIO-Support
 #define PIN_106  38  // P1.06 (SCL) (SPECIFY &Wire)
 
 
+Підключення шагового двигуна вісі №3
+
+Підключаю до якогось драйверу, шо перший попався, на HR4988
+
+На шаговіку 4 дроти:
+
+- чорний - B
+- червоний - !A
+- зелений - A
+- синій - !B
+
 
 ## Компіляція та прошивка
 
@@ -22,7 +33,7 @@ https://github.com/ICantMakeThings/Nicenano-NRF52-Supermini-PlatformIO-Support
 Далі треба із хекста створити uf2.
 
 ```
-python uf2conv.py .pio/build/nicenano/firmware.hex -c -f 0xADA52840
+pio run && python uf2conv.py .pio/build/nicenano/firmware.hex -c -f 0xADA52840
 ```
 
 

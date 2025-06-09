@@ -12,7 +12,16 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
+#include <Stepper.h>
+
 #define LED PIN_015 //Set a definiton on pin P0.15 called "LED".
+
+#define STEPPER_DIR_PIN PIN_111 //Set a definiton on pin P0.09 called "STEPPER_DIR_PIN".
+#define STEPPER_STEP_PIN PIN_113 //Set a definiton on pin P0.10 called "STEPPER_STEP_PIN".
+
+#define STEPS 200
+Stepper stepper(STEPS, STEPPER_DIR_PIN, STEPPER_STEP_PIN);
+#define motorInterfaceType 1
 
 Adafruit_SSD1306 display(128, 32, &Wire, -1);
 // BLEUart bleuart;  // BLE UART сервіс
@@ -87,6 +96,13 @@ void led_write_callback(uint16_t conn_hdl, BLECharacteristic* chr, uint8_t* data
     Serial.print("Data: ");
     Serial.println(data[0],HEX);
     lsbLED.write8(data[0]&1);
+
+
+    // if(data[0] & 1) {
+    //     stepper.step(1);
+    // } else {
+    //     stepper.step(-1);
+    // }
 }
 
 void setup() {
@@ -97,6 +113,7 @@ void setup() {
     Serial.begin(115200);
 
     // bluemicro_hid.begin();
+    stepper.setSpeed(1000);
 
     Bluefruit.begin();
     Bluefruit.setName("DROPLA-ROBO-ARM");
@@ -204,6 +221,9 @@ void loop() {
     display.print("Count: ");
     display.print(count);
     display.display();
+
+
+    stepper.step(10); // Step the motor one step forward
 
 }
 //   digitalWrite(LED, LOW); //Set the LED to low
