@@ -27,8 +27,14 @@
 <body>
   <h1>DROPLA LED Control</h1>
   <button id="connect">🔗 Connect</button>
-  <button id="led-on">💡 LED ON</button>
-  <button id="led-off">❌ LED OFF</button>
+  <div id="buttons">
+    <button class="action-btn" data-press="10" data-release="11">Button 1</button>
+    <button class="action-btn" data-press="20" data-release="21">Button 2</button>
+    <button class="action-btn" data-press="30" data-release="31">Button 3</button>
+    <button class="action-btn" data-press="40" data-release="41">Button 4</button>
+    <button class="action-btn" data-press="50" data-release="51">Button 5</button>
+    <button class="action-btn" data-press="60" data-release="61">Button 6</button>
+  </div>
   <p id="status">Status: Disconnected</p>
 
   <script>
@@ -55,16 +61,45 @@
       }
     });
 
-    document.getElementById('led-on').addEventListener('click', async () => {
-      if (ledCharacteristic) {
-        await ledCharacteristic.writeValue(Uint8Array.of(1));
-      }
-    });
+    // Add event listeners for all action buttons
+    document.querySelectorAll('.action-btn').forEach(btn => {
+      // Only send on press and release, not on mouseleave
+      let isTouch = false;
 
-    document.getElementById('led-off').addEventListener('click', async () => {
-      if (ledCharacteristic) {
-        await ledCharacteristic.writeValue(Uint8Array.of(0));
-      }
+      btn.addEventListener('touchstart', async (e) => {
+        isTouch = true;
+        e.preventDefault();
+        if (ledCharacteristic) {
+          const value = parseInt(btn.getAttribute('data-press'));
+          await ledCharacteristic.writeValue(Uint8Array.of(value));
+        }
+      }, {passive: false});
+
+      btn.addEventListener('touchend', async (e) => {
+        e.preventDefault();
+        if (ledCharacteristic) {
+          const value = parseInt(btn.getAttribute('data-release'));
+          await ledCharacteristic.writeValue(Uint8Array.of(value));
+        }
+        // To prevent mouse events after touch
+        setTimeout(() => { isTouch = false; }, 100);
+      }, {passive: false});
+
+      btn.addEventListener('mousedown', async (e) => {
+        if (isTouch) return;
+        if (ledCharacteristic) {
+          const value = parseInt(btn.getAttribute('data-press'));
+          await ledCharacteristic.writeValue(Uint8Array.of(value));
+        }
+      });
+
+      btn.addEventListener('mouseup', async (e) => {
+        if (isTouch) return;
+        if (ledCharacteristic) {
+          const value = parseInt(btn.getAttribute('data-release'));
+          await ledCharacteristic.writeValue(Uint8Array.of(value));
+        }
+      });
     });
   </script>
 

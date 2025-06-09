@@ -12,7 +12,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-#include <Stepper.h>
+#include <AccelStepper.h>
 
 #define LED PIN_015 //Set a definiton on pin P0.15 called "LED".
 
@@ -20,8 +20,9 @@
 #define STEPPER_STEP_PIN PIN_113 //Set a definiton on pin P0.10 called "STEPPER_STEP_PIN".
 
 #define STEPS 200
-Stepper stepper(STEPS, STEPPER_DIR_PIN, STEPPER_STEP_PIN);
-#define motorInterfaceType 1
+AccelStepper stepper(AccelStepper::DRIVER, STEPPER_STEP_PIN, STEPPER_DIR_PIN);
+// Stepper stepper(STEPS, STEPPER_DIR_PIN, STEPPER_STEP_PIN);
+// #define motorInterfaceType 1
 
 Adafruit_SSD1306 display(128, 32, &Wire, -1);
 // BLEUart bleuart;  // BLE UART сервіс
@@ -83,8 +84,12 @@ void setupAdv(void)
   Bluefruit.Advertising.restartOnDisconnect(true);
 }
 
+bool isRunning = false;
+float motorSpeed = 1000.0; // кроків/сек
+
 void led_write_callback(uint16_t conn_hdl, BLECharacteristic* chr, uint8_t* data, uint16_t len)
 {
+    static bool ledState = false;
   (void) conn_hdl;
   (void) chr;
   (void) len; // len should be 1
@@ -92,10 +97,43 @@ void led_write_callback(uint16_t conn_hdl, BLECharacteristic* chr, uint8_t* data
   // If least significant bit of data[0] is 0 then turn LED Off
   // If least significant bit of data[0] is 1 then turn LED On
 
-    digitalWrite(LED_BUILTIN, data[0]&1);
+    // digitalWrite(LED_BUILTIN, data[0]&1);
+    if (!ledState) {
+        ledState = true;
+        digitalWrite(LED, HIGH); //Set the LED to high
+    } else {
+        ledState = false;
+        digitalWrite(LED, LOW); //Set the LED to low
+    }
     Serial.print("Data: ");
     Serial.println(data[0],HEX);
-    lsbLED.write8(data[0]&1);
+    lsbLED.write8(data[0]);
+
+    switch (data[0])
+    {
+    case 30:
+        // Start move stepper motor forward
+        isRunning = true;
+        motorSpeed = 1000.0; // кроків/сек
+        break;
+    case 31:
+        // Stop move stepper motor forward
+        isRunning = false;
+        break;
+
+    case 40:
+        // Start move stepper motor backward
+        isRunning = true;
+        motorSpeed = -1000.0; // кроків/сек
+        break;
+    case 41:
+        // Stop move stepper motor backward
+        isRunning = false;
+        break;
+
+    default:
+        break;
+    }
 
 
     // if(data[0] & 1) {
@@ -113,7 +151,9 @@ void setup() {
     Serial.begin(115200);
 
     // bluemicro_hid.begin();
-    stepper.setSpeed(1000);
+    // stepper.setSpeed(1000);
+    stepper.setMaxSpeed(1000); // максимум, який ви дозволяєте
+    stepper.setSpeed(100); // за замовчуванням
 
     Bluefruit.begin();
     Bluefruit.setName("DROPLA-ROBO-ARM");
@@ -221,10 +261,6 @@ void loop() {
     display.print("Count: ");
     display.print(count);
     display.display();
-
-
-    stepper.step(10); // Step the motor one step forward
-
 }
 //   digitalWrite(LED, LOW); //Set the LED to low
 //   delay(100); //wait 100ms
@@ -248,6 +284,13 @@ void loop() {
 //     display.print("Count: ");
 //     display.print(count);
 //     display.display();
+
+    if(isRunning) {
+        // If the stepper is running, set the speed and run it
+        stepper.setSpeed(motorSpeed);
+        stepper.runSpeed();
+    }
+
 
 }
 
