@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#000000" />
   <meta name="description" content="BLE LED Control PWA">
   <title>DROPLA BLE LED Control</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#00BCD4">
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -63,6 +66,16 @@
         await ledCharacteristic.writeValue(Uint8Array.of(0));
       }
     });
+  </script>
+
+  <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(reg => console.log('Service Worker registered:', reg.scope))
+        .catch(err => console.error('Service Worker registration failed:', err));
+    });
+  }
   </script>
 </body>
 </html>

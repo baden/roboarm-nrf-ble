@@ -24,3 +24,9 @@ https://github.com/ICantMakeThings/Nicenano-NRF52-Supermini-PlatformIO-Support
 ```
 python uf2conv.py .pio/build/nicenano/firmware.hex -c -f 0xADA52840
 ```
+
+
+## Керування роборукою
+
+Можна керувати з [WEB-додатка](https://baden.github.io/roboarm-nrf-ble/)
+
